@@ -56,9 +56,15 @@ def render():
                     st.session_state.rt_live_data      = detail["data"]
                     st.session_state.rt_search_results = []
                     st.session_state.rt_selected_idx   = None
+                    st.session_state.rt_error = ""
                 else:
-                    st.error(f"查詢失敗：{detail['error']}")
+                    # rerun 會清掉畫面上的 st.error，所以錯誤訊息先存進 session_state
+                    st.session_state.rt_error = f"查詢失敗（{label}）：{detail['error']}"
                 st.rerun()
+
+    # 顯示上一次快速查詢的錯誤（跨 rerun 保留）
+    if st.session_state.get("rt_error"):
+        st.error(st.session_state.rt_error)
 
     st.divider()
 

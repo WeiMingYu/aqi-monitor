@@ -124,7 +124,7 @@ with st.sidebar:
 
     # Token 狀態提示（不顯示值，只顯示是否設定）
     token = st.session_state.get("waqi_token", "demo")
-    if token == "demo":
+    if (not token) or token == "demo":
         st.warning("⚠️ 使用 demo token\n請至「系統設定」更新")
     else:
         st.success("🔑 API Token 已設定")
