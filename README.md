@@ -18,6 +18,21 @@
 
 > 服務依附在我自己的電腦上，關機期間沒有資料，所以紀錄中有數段空白，並非系統錯誤。
 
+## 線上展示與實際運作證據
+
+- **線上展示（Streamlit Community Cloud）**：https://aqi-monitor-bwcbenbvnh8bh7de4twf29.streamlit.app/
+  資料為去識別化樣本；若一段時間無人使用，網站會休眠，首次開啟需等候數十秒喚醒。
+
+以下兩張圖來自我自己電腦上的正式環境（非展示版），已裁掉個人資訊：
+
+**每日摘要 Email（每天 08:00 自動寄出，含與前一日的升降差值）**
+
+![每日摘要 Email](docs/email_daily_digest.png)
+
+**LINE 超標警報（AQI 超過閾值時自動推播，24 小時內同一測站不重複通知）**
+
+![LINE 警報](docs/line_alert.png)
+
 ## 這個 repo 的展示版
 
 `data/demo/aqi_monitor.db` 是去識別化的展示資料庫：
