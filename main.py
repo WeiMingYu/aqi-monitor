@@ -57,8 +57,13 @@ def _load_initial_settings():
     from pages.tab_settings import load_settings, apply_settings
     db_settings = load_settings()
 
+    # ---- 3-3a. 展示版：一律使用環境變數／Secrets 的 token，不讀也不寫 DB ----
+    #      （展示 DB 內的 token 欄位是去識別化後的空值，會覆蓋掉 Secrets 的設定）
+    if DEMO_MODE:
+        db_settings["waqi_token"] = env_token
+
     # ---- 3-3. 若 DB 的 token 還是預設 demo，改用 .env 的值 ----
-    if db_settings.get("waqi_token", "demo") == "demo" and env_token != "demo":
+    if (not DEMO_MODE) and db_settings.get("waqi_token", "demo") == "demo" and env_token != "demo":
         db_settings["waqi_token"] = env_token
         # 同時寫回 DB，之後就不需要依賴 .env
         from pages.tab_settings import save_setting
