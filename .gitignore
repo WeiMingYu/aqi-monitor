@@ -1,0 +1,19 @@
+# 機密與本機設定
+.env
+.streamlit/secrets.toml
+
+# 環境與快取
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.log
+
+# 資料庫：只放行去識別化的展示資料庫
+data/*
+!data/demo/
+
+# SQLite 暫存檔
+*.db-journal
+*.db-wal
+*.db-shm

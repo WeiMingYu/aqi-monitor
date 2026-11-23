@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>空氣品質即時監測</title>
+<style>
+  /* ===== 基本重置 ===== */
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: "Microsoft JhengHei", "微軟正黑體", Arial, sans-serif;
+    background: transparent;
+    padding: 16px;
+  }
+
+  /* ===== 標題列 ===== */
+  .widget-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+
+  .widget-title {
+    font-size: 16px;
+    font-weight: bold;
+    color: #1F4E79;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .update-time {
+    font-size: 11px;
+    color: #8A9BB0;
+  }
+
+  /* ===== 卡片容器 ===== */
+  .card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 12px;
+  }
+
+  /* ===== 城市卡片 ===== */
+  .city-card {
+    background: #ffffff;
+    border-radius: 10px;
+    padding: 16px 14px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    border-top: 4px solid #ccc;
+    transition: transform 0.2s, box-shadow 0.2s;
+    cursor: default;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .city-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+  }
+
+  /* 背景淡色光暈 */
+  .city-card::before {
+    content: "";
+    position: absolute;
+    top: -20px; right: -20px;
+    width: 80px; height: 80px;
+    border-radius: 50%;
+    opacity: 0.08;
+    background: var(--aqi-color, #ccc);
+  }
+
+  .city-name {
+    font-size: 13px;
+    font-weight: bold;
+    color: #1F4E79;
+    margin-bottom: 10px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .aqi-value {
+    font-size: 42px;
+    font-weight: 900;
+    line-height: 1;
+    margin-bottom: 4px;
+    color: var(--aqi-color, #ccc);
+  }
+
+  .aqi-level {
+    font-size: 12px;
+    color: var(--aqi-color, #ccc);
+    font-weight: bold;
+    margin-bottom: 10px;
+  }
+
+  .divider {
+    height: 1px;
+    background: #f0f0f0;
+    margin: 8px 0;
+  }
+
+  .pollutants {
+    display: flex;
+    justify-content: space-between;
+    gap: 4px;
+  }
+
+  .pollutant-item {
+    text-align: center;
+    flex: 1;
+  }
+
+  .pollutant-label {
+    font-size: 10px;
+    color: #8A9BB0;
+    display: block;
+    margin-bottom: 2px;
+  }
+
+  .pollutant-value {
+    font-size: 13px;
+    font-weight: bold;
+    color: #333;
+  }
+
+  .fetch-time {
+    font-size: 10px;
+    color: #BBBBBB;
+    margin-top: 8px;
+    text-align: right;
+  }
+
+  /* ===== 載入中 / 錯誤狀態 ===== */
+  .loading {
+    text-align: center;
+    padding: 40px;
+    color: #8A9BB0;
+    font-size: 14px;
+  }
+
+  .error {
+    text-align: center;
+    padding: 40px;
+    color: #EF4444;
+    font-size: 14px;
+  }
+
+  /* ===== AQI 等級顏色 ===== */
+  .level-good     { --aqi-color: #00C400; border-top-color: #00C400; }
+  .level-moderate { --aqi-color: #DAA000; border-top-color: #DAA000; }
+  .level-sensitive{ --aqi-color: #FF7E00; border-top-color: #FF7E00; }
+  .level-unhealthy{ --aqi-color: #E00000; border-top-color: #E00000; }
+  .level-very     { --aqi-color: #8F3F97; border-top-color: #8F3F97; }
+  .level-hazardous{ --aqi-color: #7E0023; border-top-color: #7E0023; }
+  .level-unknown  { --aqi-color: #AAAAAA; border-top-color: #AAAAAA; }
+
+  /* ===== 底部來源標註 ===== */
+  .widget-footer {
+    margin-top: 12px;
+    text-align: right;
+    font-size: 10px;
+    color: #BBBBBB;
+  }
+
+  .widget-footer a {
+    color: #2E75B6;
+    text-decoration: none;
+  }
+</style>
+</head>
+<body>
+
+<!-- ===== 標題列 ===== -->
+<div class="widget-header">
+  <div class="widget-title">
+    🌬️ 即時空氣品質
+  </div>
+  <div class="update-time" id="updateTime">載入中...</div>
+</div>
+
+<!-- ===== 卡片容器 ===== -->
+<div class="card-grid" id="cardGrid">
+  <div class="loading">⏳ 載入資料中...</div>
+</div>
+
+<!-- ===== 底部來源 ===== -->
+<div class="widget-footer">
+  資料來源：<a href="https://aqicn.org" target="_blank">World Air Quality Index</a>
+  ・由 AQI Monitor 提供
+</div>
+
+<script>
+// ===== 設定 =====
+const API_URL      = "http://localhost:8506/api/aqi/all";  // 正式部署時換成對外網址
+const REFRESH_MIN  = 30;                                    // 自動更新間隔（分鐘）
+
+// ===== AQI 等級對應 =====
+function getAqiClass(aqi) {
+  if (aqi === null || aqi === undefined) return "level-unknown";
+  if (aqi <= 50)  return "level-good";
+  if (aqi <= 100) return "level-moderate";
+  if (aqi <= 150) return "level-sensitive";
+  if (aqi <= 200) return "level-unhealthy";
+  if (aqi <= 300) return "level-very";
+  return "level-hazardous";
+}
+
+// ===== 數值格式化（null → N/A）=====
+function fmt(val, dec = 1) {
+  if (val === null || val === undefined) return "N/A";
+  return Number(val).toFixed(dec);
+}
+
+// ===== 時間格式化（只取 HH:MM）=====
+function fmtTime(timeStr) {
+  if (!timeStr) return "N/A";
+  return timeStr.substring(11, 16);   // "2026-05-09 21:58:15" → "21:58"
+}
+
+// ===== 產生單張城市卡片 HTML =====
+function buildCard(city) {
+  const levelClass = getAqiClass(city.aqi);
+  const aqiDisplay = city.aqi !== null ? Math.round(city.aqi) : "N/A";
+
+  // 城市名稱：取括號內的中文（如果有的話）
+  let displayName = city.display_name || city.city_key;
+  const zhMatch   = displayName.match(/[（(](.+?)[）)]/);
+  const shortName = zhMatch ? zhMatch[1] : displayName.split(",")[0].trim();
+
+  return `
+    <div class="city-card ${levelClass}" title="${city.display_name}">
+      <div class="city-name">${shortName}</div>
+      <div class="aqi-value">${aqiDisplay}</div>
+      <div class="aqi-level">${city.aqi_emoji || ""} ${city.aqi_level || "未知"}</div>
+      <div class="divider"></div>
+      <div class="pollutants">
+        <div class="pollutant-item">
+          <span class="pollutant-label">PM2.5</span>
+          <span class="pollutant-value">${fmt(city.pm25, 0)}</span>
+        </div>
+        <div class="pollutant-item">
+          <span class="pollutant-label">PM10</span>
+          <span class="pollutant-value">${fmt(city.pm10, 0)}</span>
+        </div>
+        <div class="pollutant-item">
+          <span class="pollutant-label">O₃</span>
+          <span class="pollutant-value">${fmt(city.o3, 0)}</span>
+        </div>
+      </div>
+      <div class="fetch-time">更新 ${fmtTime(city.fetch_time)}</div>
+    </div>
+  `;
+}
+
+// ===== 從 API 載入資料並渲染 =====
+async function loadData() {
+  const grid = document.getElementById("cardGrid");
+  const timeEl = document.getElementById("updateTime");
+
+  try {
+    const resp = await fetch(API_URL);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const json = await resp.json();
+
+    if (!json.data || json.data.length === 0) {
+      grid.innerHTML = '<div class="loading">目前無資料</div>';
+      return;
+    }
+
+    // 依 AQI 高到低排序
+    const cities = json.data.sort((a, b) => (b.aqi || 0) - (a.aqi || 0));
+
+    grid.innerHTML = cities.map(buildCard).join("");
+
+    // 更新時間顯示
+    const now = new Date();
+    timeEl.textContent = `${now.getHours().toString().padStart(2,"0")}:${now.getMinutes().toString().padStart(2,"0")} 更新`;
+
+  } catch (err) {
+    grid.innerHTML = `<div class="error">⚠️ 資料載入失敗<br><small>${err.message}</small></div>`;
+    timeEl.textContent = "載入失敗";
+    console.error("AQI Widget Error:", err);
+  }
+}
+
+// ===== 初始載入 + 定時更新 =====
+loadData();
+setInterval(loadData, REFRESH_MIN * 60 * 1000);
+</script>
+
+</body>
+</html>
